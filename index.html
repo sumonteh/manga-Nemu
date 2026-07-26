@@ -55,11 +55,11 @@ button{border:0;background:none;color:inherit;cursor:pointer}
 .seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:3px;gap:3px}
 .seg button{height:31px;border-radius:8px;padding:0 9px;color:var(--muted);font-size:13px}
 .seg button.on{background:var(--accent);color:#fff}
-.chapter-grid{max-width:1280px;margin:0 auto;display:grid;gap:22px}
-.chapter-grid.pairs{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));align-items:start}
-.chapter-grid.compact{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:18px 12px}
-.spread{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;position:relative}
-.spread:after{content:"";position:absolute;top:34px;bottom:42px;left:50%;width:1px;background:#373d47;opacity:.9}
+.chapter-grid{max-width:1280px;margin:0 auto;display:grid;gap:18px 14px}
+.chapter-grid.grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));align-items:start}
+.chapter-grid.single{display:block}
+.page-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;border-radius:8px;background:linear-gradient(135deg,rgba(255,255,255,.055),rgba(255,255,255,.015));box-shadow:0 12px 28px rgba(0,0,0,.28),inset 0 0 0 1px rgba(255,255,255,.055)}
+.page-pair:nth-child(even){background:linear-gradient(135deg,rgba(79,124,255,.13),rgba(255,255,255,.018));box-shadow:0 14px 30px rgba(0,0,0,.34),inset 0 0 0 1px rgba(122,151,255,.18)}
 .page-tile{display:grid;gap:7px;min-width:0}
 .page-tile.empty{opacity:.2}
 .page-title{height:26px;display:flex;align-items:center;justify-content:space-between;gap:6px;color:#c7ccd4;font-size:12px}
@@ -72,9 +72,11 @@ button{border:0;background:none;color:inherit;cursor:pointer}
 .page-actions{display:grid;grid-template-columns:1fr repeat(4,30px);gap:5px}
 .page-actions button{height:31px;border:1px solid #3b414b;background:#252930;border-radius:8px;color:#d9dde4;font-size:12px}
 .page-actions .text-btn{background:#315fee;border-color:#315fee;color:white}
-.chapter-grid.compact .page-actions{grid-template-columns:1fr 30px}
-.chapter-grid.compact .page-actions .extra{display:none}
+.chapter-grid.grid .page-actions{grid-template-columns:1fr 30px}
+.chapter-grid.grid .page-actions .extra{display:none}
 .single-wrap{max-width:560px;margin:0 auto;display:grid;gap:12px}
+.tool-help{position:absolute;left:10px;right:10px;bottom:72px;z-index:35;display:none;align-items:center;justify-content:center;text-align:center;border:1px solid #38517f;background:rgba(31,43,69,.96);color:#dbe6ff;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.35;box-shadow:0 12px 30px rgba(0,0,0,.34)}
+.tool-help.show{display:flex}
 
 /* Editor */
 .editor{display:grid;grid-template-columns:minmax(0,1fr) 320px;min-height:0;height:100%;overflow:hidden}
@@ -156,8 +158,7 @@ input[type=file]{display:none}
   .chapter{padding-inline:10px}
   .chapter-head{flex-wrap:wrap}
   .chapter-head h1{font-size:18px}
-  .chapter-grid.pairs{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 9px}
-  .chapter-grid.compact{grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:16px 8px}
+  .chapter-grid.grid{grid-template-columns:repeat(auto-fill,minmax(174px,1fr));gap:16px 8px}
   .page-actions{grid-template-columns:1fr 30px}
   .page-actions .extra{display:none}
   .page-title{height:24px}
@@ -175,9 +176,7 @@ input[type=file]{display:none}
   .topbar input{display:none}
   .chapter-head .seg{order:3;width:100%}
   .chapter-head .seg button{flex:1}
-  .chapter-grid.pairs{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .spread{gap:5px}
-  .spread:after{display:none}
+  .page-pair{gap:6px;padding:6px}
   .page-actions button{height:34px}
   .thumb-shell{box-shadow:0 8px 18px rgba(0,0,0,.34)}
   .single-wrap{max-width:92vw}
@@ -211,8 +210,7 @@ input[type=file]{display:none}
         <h1>Capítulo</h1>
         <span class="pill" id="chapterCount">0 páginas</span>
         <div class="seg" id="viewModeSeg" aria-label="Modo de vista">
-          <button data-view="pairs" class="on">Pares</button>
-          <button data-view="compact">Grilla</button>
+          <button data-view="grid" class="on">Grilla</button>
           <button data-view="single">Individual</button>
         </div>
         <div class="seg" id="directionSeg" aria-label="Dirección de lectura">
@@ -229,6 +227,7 @@ input[type=file]{display:none}
       <div class="stage">
         <svg class="page-svg" id="pageSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 735" role="img" aria-label="Página manga editable"></svg>
       </div>
+      <div class="tool-help" id="toolHelp"></div>
       <aside class="editor-side" id="editorSide">
         <div class="panel">
           <h2>Página</h2>
@@ -286,7 +285,7 @@ input[type=file]{display:none}
             <button class="btn" id="toggleTail">Cola</button>
             <button class="btn danger" id="deleteBubble">Borrar</button>
           </div>
-          <p class="hint" id="bubbleSummary">Herramienta Globo: toca una viñeta para crear uno.</p>
+          <p class="hint" id="bubbleSummary">Para crear rápido: selecciona una viñeta y toca Globo. Si no hay viñeta seleccionada, toca Globo y luego toca la página.</p>
         </div>
       </aside>
       <div class="toast" id="toast"></div>
@@ -322,7 +321,6 @@ input[type=file]{display:none}
   <nav class="bottom-nav">
     <button class="nav-btn on" id="navChapter"><b>▦</b>Capítulo</button>
     <button class="nav-btn" id="navSelect"><b>✥</b>Mover</button>
-    <button class="nav-btn" id="navCut"><b>╱</b>Cortar</button>
     <button class="nav-btn" id="navBubble"><b>◯</b>Globo</button>
     <button class="nav-btn" id="navDialogs"><b>≡</b>Texto</button>
     <button class="nav-btn" id="navTools"><b>☰</b>Ajustes</button>
@@ -365,7 +363,7 @@ function defaultState(){
   pages[1].tree=splitNode("v",.48,.12,panel(),splitNode("h",.55,-.05));
   pages[2].tree=splitNode("h",.33,0,panel(),splitNode("v",.56,.08));
   pages[3].tree=splitNode("h",.5,-.1,panel(),panel());
-  return{version:2,name:"Mi capítulo",activePageId:pages[0].id,view:"chapter",chapterMode:"pairs",readingDirection:"rtl",tool:"select",gutter:12,margin:26,showMargins:true,showBleed:false,pages,script:[],selectedPanelId:null,selectedBubbleId:null,pickForBubbleId:null}
+  return{version:2,name:"Mi capítulo",activePageId:pages[0].id,view:"chapter",chapterMode:"grid",readingDirection:"rtl",tool:"select",gutter:12,margin:26,showMargins:true,showBleed:false,pages,script:[],selectedPanelId:null,selectedBubbleId:null,pickForBubbleId:null}
 }
 
 function loadState(){
@@ -384,7 +382,10 @@ function normalize(data){
   if(data.version===2){
     data.pages=data.pages.map((p,i)=>({id:p.id||uid("page"),title:p.title||`Página ${i+1}`,tree:normalizeTree(p.tree),bubbles:Array.isArray(p.bubbles)?p.bubbles.map(b=>normalizeBubble(b,p.id)):[]}));
     data.script=Array.isArray(data.script)?data.script.map(normalizeLine):[];
-    return Object.assign(defaultState(),data,{selectedPanelId:null,selectedBubbleId:null,pickForBubbleId:null});
+    const next=Object.assign(defaultState(),data,{selectedPanelId:null,selectedBubbleId:null,pickForBubbleId:null});
+    if(!["grid","single"].includes(next.chapterMode))next.chapterMode="grid";
+    if(next.tool==="cut")next.tool="select";
+    return next;
   }
   const pages=data.pages.map((p,i)=>{
     const pageId=p.id||uid("page");
@@ -612,34 +613,35 @@ function renderChrome(){
   $("#editorView").classList.toggle("hidden",state.view!=="editor");
   $("#navChapter").classList.toggle("on",state.view==="chapter");
   $("#navSelect").classList.toggle("on",state.view==="editor"&&state.tool==="select");
-  $("#navCut").classList.toggle("on",state.view==="editor"&&state.tool==="cut");
   $("#navBubble").classList.toggle("on",state.view==="editor"&&state.tool==="bubble");
   $("#navDialogs").classList.toggle("on",$("#dialogSheet").classList.contains("open"));
   $("#chapterCount").textContent=`${state.pages.length} página${state.pages.length===1?"":"s"}`;
   $$("#viewModeSeg button").forEach(b=>b.classList.toggle("on",b.dataset.view===state.chapterMode));
   $$("#directionSeg button").forEach(b=>b.classList.toggle("on",b.dataset.dir===state.readingDirection));
+  const help=$("#toolHelp");
+  if(help){
+    help.classList.toggle("show",state.view==="editor"&&state.tool==="bubble");
+    help.textContent="Globo activo: toca una viñeta para colocarlo. Se conecta al próximo diálogo libre y luego puedes arrastrarlo.";
+  }
 }
 function renderChapter(){
   const grid=$("#chapterGrid");
-  grid.className="chapter-grid "+(state.chapterMode==="single"?"compact":state.chapterMode);
+  grid.className="chapter-grid "+(state.chapterMode==="single"?"single":"grid");
   grid.innerHTML="";
   if(state.chapterMode==="single"){
     const wrap=document.createElement("div");wrap.className="single-wrap";
     wrap.append(makePageTile(activeIndex(),true));
     grid.appendChild(wrap);return;
   }
-  if(state.chapterMode==="compact"){
-    state.pages.forEach((_,i)=>grid.appendChild(makePageTile(i,false)));return;
-  }
   for(let i=0;i<state.pages.length;i+=2){
-    const spread=document.createElement("article");spread.className="spread";
+    const pair=document.createElement("article");pair.className="page-pair";
     const first=i,second=i+1;
     if(state.readingDirection==="rtl"){
-      spread.append(second<state.pages.length?makePageTile(second,false):emptyTile(),makePageTile(first,false));
+      pair.append(second<state.pages.length?makePageTile(second,false):emptyTile(),makePageTile(first,false));
     }else{
-      spread.append(makePageTile(first,false),second<state.pages.length?makePageTile(second,false):emptyTile());
+      pair.append(makePageTile(first,false),second<state.pages.length?makePageTile(second,false):emptyTile());
     }
-    grid.appendChild(spread);
+    grid.appendChild(pair);
   }
 }
 function emptyTile(){const d=document.createElement("div");d.className="page-tile empty";d.innerHTML='<div class="page-title"></div><div class="thumb-shell"></div>';return d}
@@ -768,7 +770,7 @@ function syncInspector(){
   $("#cutPos").value=Math.round((cut?.pos||.5)*100);$("#cutPosOut").textContent=Math.round((cut?.pos||.5)*100);
   $("#cutAngle").value=Math.round((cut?.angle||0)*180/Math.PI);$("#cutAngleOut").textContent=Math.round((cut?.angle||0)*180/Math.PI)+"°";
   const b=activePage().bubbles.find(x=>x.id===state.selectedBubbleId);
-  $("#bubbleSummary").textContent=b?(state.script.find(l=>l.id===b.lineId)?.text||"Globo sin diálogo"):"Herramienta Globo: toca una viñeta para crear uno.";
+  $("#bubbleSummary").textContent=b?(state.script.find(l=>l.id===b.lineId)?.text||"Globo sin diálogo"):"Selecciona una viñeta y toca Globo para colocarlo al centro, o toca Globo y luego toca la viñeta.";
   $$("#bubbleShapeButtons button").forEach(btn=>btn.classList.toggle("on",b?.shape===btn.dataset.shape));
 }
 
@@ -850,7 +852,18 @@ function moveLinePage(line,delta){
 function openEditor(index=activeIndex()){
   state.activePageId=state.pages[index].id;state.view="editor";state.tool="select";state.selectedPanelId=null;state.selectedBubbleId=null;render();
 }
-function setTool(tool){state.tool=tool;if(tool==="cut")state.selectedBubbleId=null;if(tool==="bubble")state.selectedPanelId=null;if(state.view!=="editor")state.view="editor";render()}
+function setTool(tool){state.tool=tool;if(tool==="bubble")state.selectedPanelId=null;if(state.view!=="editor")state.view="editor";render()}
+function selectedPanelPoint(){
+  if(!state.selectedPanelId)return null;
+  const leaf=leavesOf(activePage().tree,pagePoly()).find(l=>l.id===state.selectedPanelId);
+  return leaf?centroid(leaf.poly):null;
+}
+function startBubblePlacement(){
+  if(state.view!=="editor"){state.view="editor";state.tool="bubble";render();return}
+  const point=selectedPanelPoint();
+  if(point){addBubbleAt(point[0],point[1],state.selectedPanelId);return}
+  setTool("bubble");
+}
 function splitSelected(axis){
   if(!state.selectedPanelId){toast("Selecciona una viñeta");return}
   const f=findNode(activePage().tree,state.selectedPanelId);
@@ -945,8 +958,7 @@ window.addEventListener("pointerup",()=>{if(drag){snap();drag=null;render()}});
 
 $("#navChapter").onclick=()=>{state.view="chapter";state.tool="select";render()};
 $("#navSelect").onclick=()=>setTool("select");
-$("#navCut").onclick=()=>setTool("cut");
-$("#navBubble").onclick=()=>setTool("bubble");
+$("#navBubble").onclick=startBubblePlacement;
 $("#navDialogs").onclick=()=>openSheet("list");
 $("#navTools").onclick=()=>{$("#editorSide").classList.toggle("open");if(state.view!=="editor")openEditor(activeIndex())};
 $("#addPageTop").onclick=addPage;
