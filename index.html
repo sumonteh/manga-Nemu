@@ -17,6 +17,7 @@
   --muted2:#717985;
   --paper:#f6f1e4;
   --ink:#17130f;
+  --bubble-fill:#fffdf7;
   --accent:#4f7cff;
   --accent2:#36b68a;
   --danger:#ed6b63;
@@ -92,11 +93,12 @@ button{border:0;background:none;color:inherit;cursor:pointer}
 .panel-no-ring{fill:rgba(246,241,228,.7);stroke:#909090;stroke-width:1}
 .cut-line{stroke:var(--accent);stroke-width:2.8;stroke-linecap:round;cursor:move}
 .handle{fill:#fff;stroke:var(--accent);stroke-width:2.8;cursor:grab}
-.bubble-shape{fill:var(--paper);stroke:var(--ink);stroke-width:2.2}
+.sketch-line{fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;opacity:.86}
+.bubble-shape{fill:var(--bubble-fill);stroke:var(--ink);stroke-width:2.2}
 .bubble-shape.sel{stroke:var(--accent);stroke-width:3}
 .bubble-text{fill:var(--ink);font-family:"Comic Sans MS","Comic Neue",ui-rounded,cursive;font-weight:700;pointer-events:none}
 .bubble-empty{fill:#757575;font-size:13px;font-style:italic;pointer-events:none}
-.bubble-tail{fill:var(--paper);stroke:var(--ink);stroke-width:2;stroke-linejoin:round}
+.bubble-tail{fill:var(--bubble-fill);stroke:var(--ink);stroke-width:2;stroke-linejoin:round}
 .bubble-tail.sel{stroke:var(--accent)}
 .resize-dot,.tail-dot{fill:var(--accent);stroke:#fff;stroke-width:1.8}
 .editor-side{border-left:1px solid var(--line);background:rgba(29,32,37,.97);overflow:auto;padding:14px 14px 92px}
@@ -111,6 +113,11 @@ button{border:0;background:none;color:inherit;cursor:pointer}
 .range-row output{border:1px solid var(--line);background:#171a1f;border-radius:8px;padding:6px;text-align:center;color:var(--text)}
 .bubble-buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .bubble-buttons button{height:auto;min-height:36px;font-size:12px}
+.tool-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.swatch-btn{width:38px;height:34px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);position:relative}
+.swatch-btn:before{content:"";position:absolute;inset:9px;border-radius:99px;background:var(--swatch)}
+.swatch-btn.on,.width-btn.on{outline:2px solid var(--accent);outline-offset:1px}
+.width-btn{height:34px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:0 10px;color:var(--muted)}
 .hint{color:var(--muted);font-size:12px;line-height:1.45;margin:8px 0 0}
 .toast{position:absolute;left:50%;bottom:78px;transform:translateX(-50%) translateY(10px);z-index:60;background:#050607;color:white;border:1px solid #30343c;border-radius:999px;padding:10px 15px;font-size:13px;opacity:0;pointer-events:none;transition:.22s}
 .toast.show{opacity:.94;transform:translateX(-50%) translateY(0)}
@@ -269,6 +276,24 @@ input[type=file]{display:none}
           <label class="field">Sangrado visible <input id="bleedVisible" type="checkbox"></label>
         </div>
         <div class="panel">
+          <h2>Lápiz</h2>
+          <div class="field">Color
+            <div class="tool-row" id="pencilColors">
+              <button class="swatch-btn" data-color="#17130f" style="--swatch:#17130f" title="Negro"></button>
+              <button class="swatch-btn" data-color="#d94141" style="--swatch:#d94141" title="Rojo"></button>
+              <button class="swatch-btn" data-color="#56b9ff" style="--swatch:#56b9ff" title="Celeste"></button>
+            </div>
+          </div>
+          <div class="field">Grosor
+            <div class="tool-row" id="pencilWidths">
+              <button class="width-btn" data-width="2">Fino</button>
+              <button class="width-btn" data-width="5">Medio</button>
+              <button class="width-btn" data-width="9">Grueso</button>
+            </div>
+          </div>
+          <p class="hint">Toca Lápiz y dibuja sobre la página. Los trazos quedan guardados en la página y aparecen en la miniatura.</p>
+        </div>
+        <div class="panel">
           <h2>Globos</h2>
           <div class="bubble-buttons" id="bubbleShapeButtons">
             <button class="btn" data-shape="ellipse">Diálogo</button>
@@ -321,6 +346,7 @@ input[type=file]{display:none}
   <nav class="bottom-nav">
     <button class="nav-btn on" id="navChapter"><b>▦</b>Capítulo</button>
     <button class="nav-btn" id="navSelect"><b>✥</b>Mover</button>
+    <button class="nav-btn" id="navPencil"><b>✎</b>Lápiz</button>
     <button class="nav-btn" id="navBubble"><b>◯</b>Globo</button>
     <button class="nav-btn" id="navDialogs"><b>≡</b>Texto</button>
     <button class="nav-btn" id="navTools"><b>☰</b>Ajustes</button>
@@ -355,7 +381,7 @@ function splitNode(axis="h",pos=.5,angle=0,a=panel(),b=panel()){
   return{id:uid("cut"),type:"split",axis,pos,angle,a,b}
 }
 function newPage(n=1){
-  return{id:uid("page"),title:`Página ${n}`,tree:panel(),bubbles:[]}
+  return{id:uid("page"),title:`Página ${n}`,tree:panel(),bubbles:[],strokes:[]}
 }
 function defaultState(){
   const pages=[newPage(1),newPage(2),newPage(3),newPage(4),newPage(5),newPage(6),newPage(7),newPage(8)];
@@ -363,7 +389,7 @@ function defaultState(){
   pages[1].tree=splitNode("v",.48,.12,panel(),splitNode("h",.55,-.05));
   pages[2].tree=splitNode("h",.33,0,panel(),splitNode("v",.56,.08));
   pages[3].tree=splitNode("h",.5,-.1,panel(),panel());
-  return{version:2,name:"Mi capítulo",activePageId:pages[0].id,view:"chapter",chapterMode:"grid",readingDirection:"rtl",tool:"select",gutter:12,margin:26,showMargins:true,showBleed:false,pages,script:[],selectedPanelId:null,selectedBubbleId:null,pickForBubbleId:null}
+  return{version:2,name:"Mi capítulo",activePageId:pages[0].id,view:"chapter",chapterMode:"grid",readingDirection:"rtl",tool:"select",pencilColor:"#17130f",pencilWidth:5,gutter:12,margin:26,showMargins:true,showBleed:false,pages,script:[],selectedPanelId:null,selectedBubbleId:null,pickForBubbleId:null}
 }
 
 function loadState(){
@@ -380,7 +406,7 @@ function loadState(){
 function normalize(data){
   if(!data||!Array.isArray(data.pages)||!data.pages.length)throw new Error("Proyecto inválido");
   if(data.version===2){
-    data.pages=data.pages.map((p,i)=>({id:p.id||uid("page"),title:p.title||`Página ${i+1}`,tree:normalizeTree(p.tree),bubbles:Array.isArray(p.bubbles)?p.bubbles.map(b=>normalizeBubble(b,p.id)):[]}));
+    data.pages=data.pages.map((p,i)=>({id:p.id||uid("page"),title:p.title||`Página ${i+1}`,tree:normalizeTree(p.tree),bubbles:Array.isArray(p.bubbles)?p.bubbles.map(b=>normalizeBubble(b,p.id)):[],strokes:normalizeStrokes(p.strokes)}));
     data.script=Array.isArray(data.script)?data.script.map(normalizeLine):[];
     const next=Object.assign(defaultState(),data,{selectedPanelId:null,selectedBubbleId:null,pickForBubbleId:null});
     if(!["grid","single"].includes(next.chapterMode))next.chapterMode="grid";
@@ -389,7 +415,7 @@ function normalize(data){
   }
   const pages=data.pages.map((p,i)=>{
     const pageId=p.id||uid("page");
-    return{id:pageId,title:p.title||`Página ${i+1}`,tree:normalizeTree(p.tree),bubbles:(p.bubbles||[]).map(b=>normalizeBubble(b,pageId))}
+    return{id:pageId,title:p.title||`Página ${i+1}`,tree:normalizeTree(p.tree),bubbles:(p.bubbles||[]).map(b=>normalizeBubble(b,pageId)),strokes:normalizeStrokes(p.strokes)}
   });
   const script=[];
   pages.forEach((p,i)=>{
@@ -450,6 +476,9 @@ function normalizeBubble(b,pageId){
 }
 function normalizeLine(l){
   return{id:String(l.id||uid("line")),pageId:String(l.pageId||l.page||""),text:String(l.text||""),assignedBubbleId:l.assignedBubbleId||null}
+}
+function normalizeStrokes(strokes){
+  return Array.isArray(strokes)?strokes.map(s=>({id:String(s.id||uid("stroke")),color:s.color||"#17130f",width:Number(s.width)||5,points:Array.isArray(s.points)?s.points.filter(p=>Array.isArray(p)&&p.length>=2).map(p=>[Number(p[0])||0,Number(p[1])||0]):[]})).filter(s=>s.points.length):[];
 }
 function bubbleTypeToShape(type){return{speech:"ellipse",thought:"thought",shout:"shout",whisper:"whisper",narration:"caption",round:"roundrect"}[type]||"ellipse"}
 
@@ -613,6 +642,7 @@ function renderChrome(){
   $("#editorView").classList.toggle("hidden",state.view!=="editor");
   $("#navChapter").classList.toggle("on",state.view==="chapter");
   $("#navSelect").classList.toggle("on",state.view==="editor"&&state.tool==="select");
+  $("#navPencil").classList.toggle("on",state.view==="editor"&&state.tool==="pencil");
   $("#navBubble").classList.toggle("on",state.view==="editor"&&state.tool==="bubble");
   $("#navDialogs").classList.toggle("on",$("#dialogSheet").classList.contains("open"));
   $("#chapterCount").textContent=`${state.pages.length} página${state.pages.length===1?"":"s"}`;
@@ -620,8 +650,9 @@ function renderChrome(){
   $$("#directionSeg button").forEach(b=>b.classList.toggle("on",b.dataset.dir===state.readingDirection));
   const help=$("#toolHelp");
   if(help){
-    help.classList.toggle("show",state.view==="editor"&&state.tool==="bubble");
-    help.textContent="Globo activo: toca una viñeta para colocarlo. Se conecta al próximo diálogo libre y luego puedes arrastrarlo.";
+    const show=state.view==="editor"&&(state.tool==="bubble"||state.tool==="pencil");
+    help.classList.toggle("show",show);
+    help.textContent=state.tool==="pencil"?"Lápiz activo: dibuja sobre la página. Cambia color y grosor en Ajustes.":"Globo activo: toca una viñeta para colocarlo. Se conecta al próximo diálogo libre y luego puedes arrastrarlo.";
   }
 }
 function renderChapter(){
@@ -633,16 +664,17 @@ function renderChapter(){
     wrap.append(makePageTile(activeIndex(),true));
     grid.appendChild(wrap);return;
   }
-  for(let i=0;i<state.pages.length;i+=2){
-    const pair=document.createElement("article");pair.className="page-pair";
-    const first=i,second=i+1;
-    if(state.readingDirection==="rtl"){
-      pair.append(second<state.pages.length?makePageTile(second,false):emptyTile(),makePageTile(first,false));
-    }else{
-      pair.append(makePageTile(first,false),second<state.pages.length?makePageTile(second,false):emptyTile());
-    }
-    grid.appendChild(pair);
+  const pairs=[];
+  if(state.readingDirection==="rtl"){
+    for(let high=state.pages.length-1;high>=0;high-=2)pairs.push([high,high-1]);
+  }else{
+    for(let low=0;low<state.pages.length;low+=2)pairs.push([low,low+1]);
   }
+  pairs.forEach(([first,second])=>{
+    const pair=document.createElement("article");pair.className="page-pair";
+    pair.append(first>=0&&first<state.pages.length?makePageTile(first,false):emptyTile(),second>=0&&second<state.pages.length?makePageTile(second,false):emptyTile());
+    grid.appendChild(pair);
+  });
 }
 function emptyTile(){const d=document.createElement("div");d.className="page-tile empty";d.innerHTML='<div class="page-title"></div><div class="thumb-shell"></div>';return d}
 function makePageTile(index,large){
@@ -666,6 +698,7 @@ function miniSvg(page,num){
     const c=centroid(poly);
     s.append(svgEl("text",{x:c[0],y:c[1],"text-anchor":"middle",fill:"#999","font-size":28,"font-family":"monospace"},orderMap.get(l.id)));
   });
+  renderStrokes(s,page);
   page.bubbles.forEach(b=>drawBubble(s,b,false));
   s.append(svgEl("text",{x:PAGE.w/2,y:PAGE.h-15,"text-anchor":"middle",fill:"#777","font-size":18,"font-family":"monospace"},"P"+num));
   return s;
@@ -691,6 +724,7 @@ function renderEditor(){
     const hit=svgEl("polygon",{class:"hit-poly",points:pts(l.poly)});
     hit.dataset.panel=l.id;svg.append(hit);
   });
+  renderStrokes(svg,activePage());
   activePage().bubbles.forEach(b=>drawBubble(svg,b,true));
   drawSelectedCut(svg);
   syncInspector();
@@ -708,12 +742,29 @@ function drawSelectedCut(svg){
   cut.dataset.cut=par.id;cut.dataset.moveCut="1";svg.append(cut);
   seg.forEach((p,i)=>{const h=svgEl("circle",{class:"handle",cx:p[0],cy:p[1],r:9});h.dataset.cut=par.id;h.dataset.cutEnd=i;svg.append(h)});
 }
+function renderStrokes(svg,page){
+  (page.strokes||[]).forEach(st=>{
+    if(!st.points||st.points.length<2)return;
+    svg.append(svgEl("path",{class:"sketch-line",d:strokePath(st.points),stroke:st.color||"#17130f","stroke-width":Number(st.width)||5}));
+  });
+}
+function strokePath(points){
+  if(points.length<2)return"";
+  let d=`M${points[0][0].toFixed(1)} ${points[0][1].toFixed(1)}`;
+  for(let i=1;i<points.length;i++){
+    const prev=points[i-1],cur=points[i];
+    const mx=((prev[0]+cur[0])/2).toFixed(1),my=((prev[1]+cur[1])/2).toFixed(1);
+    d+=` Q${prev[0].toFixed(1)} ${prev[1].toFixed(1)} ${mx} ${my}`;
+  }
+  const last=points[points.length-1];
+  return d+` T${last[0].toFixed(1)} ${last[1].toFixed(1)}`;
+}
 function drawBubble(svg,b,interactive){
   const selected=interactive&&b.id===state.selectedBubbleId,cls="bubble-shape"+(selected?" sel":"");
   const cx=b.x*PAGE.w,cy=b.y*PAGE.h;
   if(b.tail?.enabled&&b.shape!=="caption"){
     const tx=b.tail.x*PAGE.w,ty=b.tail.y*PAGE.h;
-    const tail=svgEl("polygon",{class:"bubble-tail"+(selected?" sel":""),points:`${cx-10},${cy+b.ry*.55} ${cx+14},${cy+b.ry*.45} ${tx},${ty}`});
+    const tail=svgEl("polygon",{class:"bubble-tail"+(selected?" sel":""),points:`${cx-11},${cy+b.ry*.72} ${cx+15},${cy+b.ry*.68} ${tx},${ty}`});
     if(interactive){tail.dataset.bubble=b.id;tail.dataset.tail="1"}svg.append(tail);
   }
   let shape;
@@ -772,6 +823,8 @@ function syncInspector(){
   const b=activePage().bubbles.find(x=>x.id===state.selectedBubbleId);
   $("#bubbleSummary").textContent=b?(state.script.find(l=>l.id===b.lineId)?.text||"Globo sin diálogo"):"Selecciona una viñeta y toca Globo para colocarlo al centro, o toca Globo y luego toca la viñeta.";
   $$("#bubbleShapeButtons button").forEach(btn=>btn.classList.toggle("on",b?.shape===btn.dataset.shape));
+  $$("#pencilColors button").forEach(btn=>btn.classList.toggle("on",btn.dataset.color===state.pencilColor));
+  $$("#pencilWidths button").forEach(btn=>btn.classList.toggle("on",Number(btn.dataset.width)===Number(state.pencilWidth)));
 }
 
 function renderDialogList(){
@@ -852,7 +905,13 @@ function moveLinePage(line,delta){
 function openEditor(index=activeIndex()){
   state.activePageId=state.pages[index].id;state.view="editor";state.tool="select";state.selectedPanelId=null;state.selectedBubbleId=null;render();
 }
-function setTool(tool){state.tool=tool;if(tool==="bubble")state.selectedPanelId=null;if(state.view!=="editor")state.view="editor";render()}
+function setTool(tool){
+  state.tool=tool;
+  if(tool==="bubble"||tool==="pencil")state.selectedPanelId=null;
+  if(tool==="pencil")state.selectedBubbleId=null;
+  if(state.view!=="editor")state.view="editor";
+  render();
+}
 function selectedPanelPoint(){
   if(!state.selectedPanelId)return null;
   const leaf=leavesOf(activePage().tree,pagePoly()).find(l=>l.id===state.selectedPanelId);
@@ -899,9 +958,18 @@ function setBubbleShape(shape){const b=activePage().bubbles.find(x=>x.id===state
 function deleteBubble(){const p=activePage(),i=p.bubbles.findIndex(b=>b.id===state.selectedBubbleId);if(i<0)return toast("Selecciona un globo");snap();const id=p.bubbles[i].id;state.script.forEach(l=>{if(l.assignedBubbleId===id)l.assignedBubbleId=null});p.bubbles.splice(i,1);state.selectedBubbleId=null;render()}
 function duplicateBubble(){const b=activePage().bubbles.find(x=>x.id===state.selectedBubbleId);if(!b)return toast("Selecciona un globo");snap();const c=clone(b);c.id=uid("bubble");c.x=clamp(c.x+.05,0,1);c.y=clamp(c.y+.04,0,1);c.lineId=null;activePage().bubbles.push(c);state.selectedBubbleId=c.id;render()}
 function toggleTail(){const b=activePage().bubbles.find(x=>x.id===state.selectedBubbleId);if(!b)return toast("Selecciona un globo");snap();b.tail.enabled=!b.tail.enabled;render()}
+function startSketch(point,pointerId){
+  snap();
+  const stroke={id:uid("stroke"),color:state.pencilColor,width:Number(state.pencilWidth)||5,points:[[point.x,point.y]]};
+  activePage().strokes=activePage().strokes||[];
+  activePage().strokes.push(stroke);
+  drag={type:"sketch",stroke,noSnap:true};
+  $("#pageSvg").setPointerCapture(pointerId);
+  renderEditor();
+}
 
 function addPage(){snap();const p=newPage(state.pages.length+1);state.pages.push(p);state.activePageId=p.id;render();toast("Página agregada")}
-function duplicatePage(i=activeIndex()){snap();const p=clone(state.pages[i]);p.id=uid("page");refreshTreeIds(p.tree);p.bubbles.forEach(b=>{b.id=uid("bubble");b.pageId=p.id;b.lineId=null});state.pages.splice(i+1,0,p);state.activePageId=p.id;renumber();render()}
+function duplicatePage(i=activeIndex()){snap();const p=clone(state.pages[i]);p.id=uid("page");refreshTreeIds(p.tree);p.bubbles.forEach(b=>{b.id=uid("bubble");b.pageId=p.id;b.lineId=null});p.strokes=(p.strokes||[]).map(s=>Object.assign({},s,{id:uid("stroke"),points:clone(s.points||[])}));state.pages.splice(i+1,0,p);state.activePageId=p.id;renumber();render()}
 function refreshTreeIds(node){node.id=uid(node.type==="panel"?"panel":"cut");if(node.type==="split"){refreshTreeIds(node.a);refreshTreeIds(node.b)}}
 function deletePage(i=activeIndex()){
   if(state.pages.length===1)return toast("Debe quedar al menos una página");
@@ -917,6 +985,10 @@ function svgPoint(ev){
 }
 $("#pageSvg").addEventListener("pointerdown",e=>{
   const p=svgPoint(e),target=e.target;
+  if(state.tool==="pencil"){
+    startSketch(p,e.pointerId);
+    return;
+  }
   if(target.dataset.cutEnd!==undefined){
     const node=findNode(activePage().tree,target.dataset.cut)?.node;
     if(node){drag={type:"cutEnd",node,end:Number(target.dataset.cutEnd),parentPoly:lastCutPoly};$("#pageSvg").setPointerCapture(e.pointerId)}
@@ -944,6 +1016,11 @@ $("#pageSvg").addEventListener("pointerdown",e=>{
 });
 $("#pageSvg").addEventListener("pointermove",e=>{
   if(!drag)return;const p=svgPoint(e);
+  if(drag.type==="sketch"){
+    const points=drag.stroke.points,last=points[points.length-1];
+    if(!last||Math.hypot(p.x-last[0],p.y-last[1])>2.2){points.push([p.x,p.y]);renderEditor();saveSoon();}
+    return;
+  }
   if(drag.type==="bubble"){drag.b.x=clamp((p.x-drag.dx)/PAGE.w,0,1);drag.b.y=clamp((p.y-drag.dy)/PAGE.h,0,1)}
   if(drag.type==="resize"){drag.b.rx=clamp(p.x-drag.b.x*PAGE.w,18,150);drag.b.ry=clamp(p.y-drag.b.y*PAGE.h,14,120)}
   if(drag.type==="tail"){drag.b.tail.x=clamp(p.x/PAGE.w,0,1);drag.b.tail.y=clamp(p.y/PAGE.h,0,1);drag.b.tail.enabled=true}
@@ -954,10 +1031,11 @@ $("#pageSvg").addEventListener("pointermove",e=>{
   }
   renderEditor();saveSoon();
 });
-window.addEventListener("pointerup",()=>{if(drag){snap();drag=null;render()}});
+window.addEventListener("pointerup",()=>{if(drag){if(!drag.noSnap)snap();drag=null;render()}});
 
 $("#navChapter").onclick=()=>{state.view="chapter";state.tool="select";render()};
 $("#navSelect").onclick=()=>setTool("select");
+$("#navPencil").onclick=()=>setTool("pencil");
 $("#navBubble").onclick=startBubblePlacement;
 $("#navDialogs").onclick=()=>openSheet("list");
 $("#navTools").onclick=()=>{$("#editorSide").classList.toggle("open");if(state.view!=="editor")openEditor(activeIndex())};
@@ -978,6 +1056,8 @@ $("#bleedVisible").onchange=e=>{state.showBleed=e.target.checked;render()};
 $$("#gutterSeg button").forEach(b=>b.onclick=()=>{state.gutter=Number(b.dataset.gutter);render()});
 $$("#viewModeSeg button").forEach(b=>b.onclick=()=>{state.chapterMode=b.dataset.view;render()});
 $$("#directionSeg button").forEach(b=>b.onclick=()=>{state.readingDirection=b.dataset.dir;render()});
+$$("#pencilColors button").forEach(b=>b.onclick=()=>{state.pencilColor=b.dataset.color;setTool("pencil")});
+$$("#pencilWidths button").forEach(b=>b.onclick=()=>{state.pencilWidth=Number(b.dataset.width);setTool("pencil")});
 $$("#bubbleShapeButtons button").forEach(b=>b.onclick=()=>setBubbleShape(b.dataset.shape));
 $("#assignDialogue").onclick=()=>{if(!state.selectedBubbleId)return toast("Selecciona un globo");state.pickForBubbleId=state.selectedBubbleId;openSheet("list")};
 $("#autoFill").onclick=autoFill;
