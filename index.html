@@ -118,6 +118,8 @@ button{border:0;background:none;color:inherit;cursor:pointer}
 .swatch-btn:before{content:"";position:absolute;inset:9px;border-radius:99px;background:var(--swatch)}
 .swatch-btn.on,.width-btn.on{outline:2px solid var(--accent);outline-offset:1px}
 .width-btn{height:34px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:0 10px;color:var(--muted)}
+.eraser-btn{height:34px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:0 12px;color:var(--muted)}
+.eraser-btn.on{outline:2px solid var(--accent);outline-offset:1px;background:#293247;color:#e4ecff}
 .hint{color:var(--muted);font-size:12px;line-height:1.45;margin:8px 0 0}
 .toast{position:absolute;left:50%;bottom:78px;transform:translateX(-50%) translateY(10px);z-index:60;background:#050607;color:white;border:1px solid #30343c;border-radius:999px;padding:10px 15px;font-size:13px;opacity:0;pointer-events:none;transition:.22s}
 .toast.show{opacity:.94;transform:translateX(-50%) translateY(0)}
@@ -173,8 +175,8 @@ input[type=file]{display:none}
   .editor{display:block;overflow:hidden}
   .stage{height:100%;padding:12px 8px 80px}
   .page-svg{width:min(94vw,calc((100vh - 146px) * .707));min-width:250px}
-  .editor-side{position:absolute;right:0;top:0;bottom:0;width:min(88vw,340px);z-index:45;transform:translateX(102%);transition:.25s;box-shadow:-18px 0 44px rgba(0,0,0,.45)}
-  .editor-side.open{transform:none}
+  .editor-side{position:absolute;right:0;top:0;bottom:0;width:min(88vw,340px);z-index:45;transform:translateX(102%);transition:.25s;box-shadow:-18px 0 44px rgba(0,0,0,.45);pointer-events:none}
+  .editor-side.open{transform:none;pointer-events:auto}
   .dialog-row{grid-template-columns:1fr 34px 34px 34px}
   .dialog-row .idx,.dialog-row .move-page,.dialog-row .move-up{display:none}
 }
@@ -291,7 +293,12 @@ input[type=file]{display:none}
               <button class="width-btn" data-width="9">Grueso</button>
             </div>
           </div>
-          <p class="hint">Toca Lápiz y dibuja sobre la página. Los trazos quedan guardados en la página y aparecen en la miniatura.</p>
+          <div class="field">Corrección
+            <div class="tool-row">
+              <button class="eraser-btn" id="pencilEraser">Goma</button>
+            </div>
+          </div>
+          <p class="hint">Toca Lápiz para dibujar o Goma para borrar arrastrando sobre los trazos. Todo queda guardado en la página y aparece en la miniatura.</p>
         </div>
         <div class="panel">
           <h2>Globos</h2>
@@ -642,7 +649,7 @@ function renderChrome(){
   $("#editorView").classList.toggle("hidden",state.view!=="editor");
   $("#navChapter").classList.toggle("on",state.view==="chapter");
   $("#navSelect").classList.toggle("on",state.view==="editor"&&state.tool==="select");
-  $("#navPencil").classList.toggle("on",state.view==="editor"&&state.tool==="pencil");
+  $("#navPencil").classList.toggle("on",state.view==="editor"&&(state.tool==="pencil"||state.tool==="eraser"));
   $("#navBubble").classList.toggle("on",state.view==="editor"&&state.tool==="bubble");
   $("#navDialogs").classList.toggle("on",$("#dialogSheet").classList.contains("open"));
   $("#chapterCount").textContent=`${state.pages.length} página${state.pages.length===1?"":"s"}`;
@@ -650,9 +657,9 @@ function renderChrome(){
   $$("#directionSeg button").forEach(b=>b.classList.toggle("on",b.dataset.dir===state.readingDirection));
   const help=$("#toolHelp");
   if(help){
-    const show=state.view==="editor"&&(state.tool==="bubble"||state.tool==="pencil");
+    const show=state.view==="editor"&&(state.tool==="bubble"||state.tool==="pencil"||state.tool==="eraser");
     help.classList.toggle("show",show);
-    help.textContent=state.tool==="pencil"?"Lápiz activo: dibuja sobre la página. Cambia color y grosor en Ajustes.":"Globo activo: toca una viñeta para colocarlo. Se conecta al próximo diálogo libre y luego puedes arrastrarlo.";
+    help.textContent=state.tool==="pencil"?"Lápiz activo: dibuja sobre la página. Cambia color y grosor en Ajustes.":state.tool==="eraser"?"Goma activa: arrastra sobre trazos de lápiz para borrarlos.":"Globo activo: toca una viñeta para colocarlo. Se conecta al próximo diálogo libre y luego puedes arrastrarlo.";
   }
 }
 function renderChapter(){
@@ -762,9 +769,17 @@ function strokePath(points){
 function drawBubble(svg,b,interactive){
   const selected=interactive&&b.id===state.selectedBubbleId,cls="bubble-shape"+(selected?" sel":"");
   const cx=b.x*PAGE.w,cy=b.y*PAGE.h;
-  if(b.tail?.enabled&&b.shape!=="caption"){
+  const hasTail=b.tail?.enabled&&b.shape!=="caption";
+  const integratedTail=hasTail&&(b.shape==="ellipse"||b.shape==="whisper"||b.shape==="thought");
+  if(hasTail&&!integratedTail){
     const tx=b.tail.x*PAGE.w,ty=b.tail.y*PAGE.h;
-    const tail=svgEl("polygon",{class:"bubble-tail"+(selected?" sel":""),points:`${cx-11},${cy+b.ry*.72} ${cx+15},${cy+b.ry*.68} ${tx},${ty}`});
+    const d=[
+      `M${(cx-b.rx*.30).toFixed(1)} ${(cy+b.ry*.34).toFixed(1)}`,
+      `Q${(cx-b.rx*.08).toFixed(1)} ${(cy+b.ry*.96).toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`,
+      `Q${(cx+b.rx*.18).toFixed(1)} ${(cy+b.ry*.88).toFixed(1)} ${(cx+b.rx*.32).toFixed(1)} ${(cy+b.ry*.32).toFixed(1)}`,
+      "Z"
+    ].join(" ");
+    const tail=svgEl("path",{class:"bubble-tail"+(selected?" sel":""),d});
     if(interactive){tail.dataset.bubble=b.id;tail.dataset.tail="1"}svg.append(tail);
   }
   let shape;
@@ -773,7 +788,21 @@ function drawBubble(svg,b,interactive){
   }else if(b.shape==="shout"){
     shape=svgEl("polygon",{class:cls,points:pts(starPoly(cx,cy,b.rx,b.ry,18))});
   }else{
-    shape=svgEl("ellipse",{class:cls,cx,cy,rx:b.rx,ry:b.ry});
+    if(integratedTail){
+      const tx=b.tail.x*PAGE.w,ty=b.tail.y*PAGE.h;
+      const rb=[cx+b.rx*.58,cy+b.ry*.62],lb=[cx-b.rx*.58,cy+b.ry*.62];
+      const d=[
+        `M${rb[0].toFixed(1)} ${rb[1].toFixed(1)}`,
+        `C${(cx+b.rx).toFixed(1)} ${(cy+b.ry*.28).toFixed(1)} ${(cx+b.rx*.72).toFixed(1)} ${(cy-b.ry).toFixed(1)} ${cx.toFixed(1)} ${(cy-b.ry).toFixed(1)}`,
+        `C${(cx-b.rx*.72).toFixed(1)} ${(cy-b.ry).toFixed(1)} ${(cx-b.rx).toFixed(1)} ${(cy+b.ry*.28).toFixed(1)} ${lb[0].toFixed(1)} ${lb[1].toFixed(1)}`,
+        `Q${(cx-b.rx*.16).toFixed(1)} ${(cy+b.ry*.98).toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`,
+        `Q${(cx+b.rx*.18).toFixed(1)} ${(cy+b.ry*.92).toFixed(1)} ${rb[0].toFixed(1)} ${rb[1].toFixed(1)}`,
+        "Z"
+      ].join(" ");
+      shape=svgEl("path",{class:cls,d});
+    }else{
+      shape=svgEl("ellipse",{class:cls,cx,cy,rx:b.rx,ry:b.ry});
+    }
     if(b.shape==="whisper")shape.setAttribute("stroke-dasharray","6 5");
   }
   if(interactive){shape.dataset.bubble=b.id}
@@ -825,6 +854,7 @@ function syncInspector(){
   $$("#bubbleShapeButtons button").forEach(btn=>btn.classList.toggle("on",b?.shape===btn.dataset.shape));
   $$("#pencilColors button").forEach(btn=>btn.classList.toggle("on",btn.dataset.color===state.pencilColor));
   $$("#pencilWidths button").forEach(btn=>btn.classList.toggle("on",Number(btn.dataset.width)===Number(state.pencilWidth)));
+  $("#pencilEraser").classList.toggle("on",state.tool==="eraser");
 }
 
 function renderDialogList(){
@@ -907,8 +937,8 @@ function openEditor(index=activeIndex()){
 }
 function setTool(tool){
   state.tool=tool;
-  if(tool==="bubble"||tool==="pencil")state.selectedPanelId=null;
-  if(tool==="pencil")state.selectedBubbleId=null;
+  if(tool==="bubble"||tool==="pencil"||tool==="eraser")state.selectedPanelId=null;
+  if(tool==="pencil"||tool==="eraser")state.selectedBubbleId=null;
   if(state.view!=="editor")state.view="editor";
   render();
 }
@@ -967,6 +997,33 @@ function startSketch(point,pointerId){
   $("#pageSvg").setPointerCapture(pointerId);
   renderEditor();
 }
+function eraseAt(point){
+  const page=activePage(),radius=28;
+  let changed=false;
+  const next=[];
+  (page.strokes||[]).forEach(st=>{
+    let chunk=[];
+    const flush=()=>{
+      if(chunk.length>1)next.push(Object.assign({},st,{id:uid("stroke"),points:chunk}));
+      chunk=[];
+    };
+    (st.points||[]).forEach(pt=>{
+      const hit=Math.hypot(pt[0]-point.x,pt[1]-point.y)<=radius+(Number(st.width)||5)*.65;
+      if(hit){changed=true;flush()}
+      else chunk.push(pt);
+    });
+    flush();
+  });
+  if(changed)page.strokes=next;
+  return changed;
+}
+function startErase(point,pointerId){
+  snap();
+  eraseAt(point);
+  drag={type:"erase",noSnap:true};
+  $("#pageSvg").setPointerCapture(pointerId);
+  renderEditor();
+}
 
 function addPage(){snap();const p=newPage(state.pages.length+1);state.pages.push(p);state.activePageId=p.id;render();toast("Página agregada")}
 function duplicatePage(i=activeIndex()){snap();const p=clone(state.pages[i]);p.id=uid("page");refreshTreeIds(p.tree);p.bubbles.forEach(b=>{b.id=uid("bubble");b.pageId=p.id;b.lineId=null});p.strokes=(p.strokes||[]).map(s=>Object.assign({},s,{id:uid("stroke"),points:clone(s.points||[])}));state.pages.splice(i+1,0,p);state.activePageId=p.id;renumber();render()}
@@ -985,6 +1042,10 @@ function svgPoint(ev){
 }
 $("#pageSvg").addEventListener("pointerdown",e=>{
   const p=svgPoint(e),target=e.target;
+  if(state.tool==="eraser"){
+    startErase(p,e.pointerId);
+    return;
+  }
   if(state.tool==="pencil"){
     startSketch(p,e.pointerId);
     return;
@@ -1019,6 +1080,10 @@ $("#pageSvg").addEventListener("pointermove",e=>{
   if(drag.type==="sketch"){
     const points=drag.stroke.points,last=points[points.length-1];
     if(!last||Math.hypot(p.x-last[0],p.y-last[1])>2.2){points.push([p.x,p.y]);renderEditor();saveSoon();}
+    return;
+  }
+  if(drag.type==="erase"){
+    if(eraseAt(p)){renderEditor();saveSoon();}
     return;
   }
   if(drag.type==="bubble"){drag.b.x=clamp((p.x-drag.dx)/PAGE.w,0,1);drag.b.y=clamp((p.y-drag.dy)/PAGE.h,0,1)}
@@ -1058,6 +1123,7 @@ $$("#viewModeSeg button").forEach(b=>b.onclick=()=>{state.chapterMode=b.dataset.
 $$("#directionSeg button").forEach(b=>b.onclick=()=>{state.readingDirection=b.dataset.dir;render()});
 $$("#pencilColors button").forEach(b=>b.onclick=()=>{state.pencilColor=b.dataset.color;setTool("pencil")});
 $$("#pencilWidths button").forEach(b=>b.onclick=()=>{state.pencilWidth=Number(b.dataset.width);setTool("pencil")});
+$("#pencilEraser").onclick=()=>setTool("eraser");
 $$("#bubbleShapeButtons button").forEach(b=>b.onclick=()=>setBubbleShape(b.dataset.shape));
 $("#assignDialogue").onclick=()=>{if(!state.selectedBubbleId)return toast("Selecciona un globo");state.pickForBubbleId=state.selectedBubbleId;openSheet("list")};
 $("#autoFill").onclick=autoFill;
